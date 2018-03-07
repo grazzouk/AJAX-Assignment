@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en"> 
+<head>
+	<meta charset="utf-8"/>
+	      <link href = "https://ajax.googleapis.com/ajax/libs/jqueryui/1.11.4/themes/smoothness/jquery-ui.css"
+         rel = "stylesheet">
+	<style>
+	body {
+	text-align: center;
+	}
+	 .ui-autocomplete {
+    max-height: 100px;
+    overflow-y: auto;
+    /* prevent horizontal scrollbar */
+    overflow-x: hidden;
+	}
+	
+		/*CSS for tables*/
+	table {
+    border-collapse: collapse;
+	width: 100%;
+	}
+	th {
+    height: 50px;
+	background-color: DARKTURQUOISE;
+	}
+	td{
+	height:25px;
+	}
+	table, th, td {
+	border: 1px solid black;
+	}
+	div#pageButtons{
+	width: 100%;
+	}
+	tr:nth-child(even) {
+	background-color: LIGHTCYAN;
+	}
+	input.button{
+		width: 5%;
+	}
+	</style>
+    <title>Business and Hygiene Ratings</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+	 <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+	<script type="text/javascript">
+		$(document).ready(function() {
+			//array containing recently viewed businesses (for the auto-complete)
+			var recentBusinesses = ["A La Turka", "Abode Hotel","Active Life Limited","Age UK"];
+			//variable to say whether the new table is being created from a search or not
+			var searching = false;
+			
+			//function to generate a new table
+			function newTable($args){
+					//empties out the table
+					$("table").empty();
+					//adds the titles to the table
+					$("table").append("<tr><th>Business</th><th>Address</th><th>Hygene</th><th>Date</th><th>Rating</th>");
+					//adds the values to the table
+					$.getJSON("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php", $args, function(data) {
+					var foundData = false;
+						$.each(data, function (index, value) {
+							foundData = true;
+							$("table").append(
+								"<tr><td>" + value.business + "</td><td>" + value.address + "</td><td>" + value.rating + "</td><td>" + value.date + "</td><td><input type='button' id='getRating" + index + "' value='Get Rating'></input></td></tr>"
+							);
+							if(searching == true && recentBusinesses.indexOf(value.business) == -1){
+								recentBusinesses.push(value.business);
+							}
+							//allows clicking the get rating buttons to get the customer rating, or alert if there is no rating
+							var currentID = "input#getRating"+ index;
+							$(currentID).click( function(){
+								$.getJSON("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/rating.php",{name: value.business}, function(ratingData){
+									var hasRating = false;
+									$.each(ratingData, function(ratingIndex, ratingValue){
+										//gets postcode from address using regex
+										var postcode = ratingValue.address.match(/[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}/);
+										//cuts last character off postcode(for cases of companies with more than one postcode)
+										postcode = postcode[0].slice(0, -1);
+										if (value.postcode.includes(postcode)){
+											alert("The customer rating of " + ratingValue.business + " is " + ratingValue.rating);
+											hasRating = true;
+										}
+									});
+									if (hasRating == false){
+										alert(value.business + " has no customer rating.");
+									}
+								});
+							});
+						});
+					if (searching) {searching = false}
+					if (!foundData){ 
+						$("table").html("<p> No results found.</p>");
+					}	
+					});
+			}
+			//initializes first page
+			newTable({op: "retrieve", page: 1});
+			//creates the pageinator and adds all functions to it
+			$.getJSON("https://www.cs.kent.ac.uk/people/staff/lb514/hygiene/hygiene.php", {op: "pages"}, function(data) {
+				var buttons = "";
+				for(i = 1; i<=data.pages;i++){
+					buttons += '<input type="button" class="button" value="' + i + '">'
+				}
+				$("div#pageButtons").append(buttons);
+				$("input.button").click(function(){
+					newTable({op: "retrieve", page: $(this).val()})
+				});
+			});
+			//functionality for the search
+			$("form").submit(function(event){
+				event.preventDefault();
+				searching = true;
+				var query = $("input#searchText").val();
+				newTable({op:"searchname", name: query});
+			});
+			//auto-complete for the search
+			$( "#searchText" ).autocomplete({
+				source: recentBusinesses
+			});
+		});
+	</script>
+</head>
+<body>
+<h1> Canterbury Businesses & Hygiene Ratings </h1>
+<p>Pages:</p><div align="center" id="pageButtons"></div>
+	<table align="center">
+	</table>
+	<form align="center"> 
+		<label for="searchText">Business Name:</label>
+		<input id="searchText">
+		<input type="submit" id="searchButton" value="Search">  
+	</form>
+</body>
+</html>
